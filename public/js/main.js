@@ -295,11 +295,6 @@ document.addEventListener('DOMContentLoaded', function() {
   
   // ========== 一言 API ==========
   const hitokotoContainer = document.querySelector('#hitokoto').parentElement;
-  console.log('[Debug] hitokotoContainer:', hitokotoContainer);
-  if (hitokotoContainer) {
-      console.log('[Debug] hitokotoContainer.classList:', hitokotoContainer.classList);
-      console.log('[Debug] contains hidden?', hitokotoContainer.classList.contains('hidden'));
-  }
   // 检查容器是否被隐藏，如果隐藏则不发起请求
   if (hitokotoContainer && !hitokotoContainer.classList.contains('hidden')) {
     console.log('[Debug] Fetching hitokoto...');
@@ -518,6 +513,7 @@ document.addEventListener('DOMContentLoaded', function() {
   });
 
   function renderSites(sites) {
+    console.log('renderSites sites:', sites);
       const sitesGrid = document.getElementById('sitesGrid');
       if (!sitesGrid) return;
       
@@ -545,10 +541,11 @@ document.addEventListener('DOMContentLoaded', function() {
       }
 
       sites.forEach((site, index) => {
+        console.log('[Debug] Rendering site:', site);
         const safeName = escapeHTML(site.name || '未命名');
         const safeUrl = normalizeUrl(site.url);
         const safeDesc = escapeHTML(site.desc || '暂无描述');
-        const safeCatalog = escapeHTML(site.catelog || '未分类');
+        const safeCatalog = escapeHTML(site.catelog_name || site.catelog || '未分类');
         const cardInitial = (safeName.charAt(0) || '站').toUpperCase();
         
         let logoHtml = '';
