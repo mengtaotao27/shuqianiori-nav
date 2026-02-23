@@ -391,6 +391,11 @@ export async function onRequest(context) {
     bgLayerHtml = `<div id="fixed-background" style="position: fixed; top: 0; left: 0; width: 100%; height: 100%; z-index: -9999; pointer-events: none; background-color: ${defaultBgColor};"></div>`;
   }
 
+  // 注入壁纸预加载（让浏览器在解析 <head> 时就开始下载壁纸图片）
+  if (safeWallpaperUrl) {
+    html = html.replace('</head>', `<link rel="preload" as="image" href="${safeWallpaperUrl}">\n</head>`);
+  }
+
   // 注入全局滚动样式
   const globalScrollCss = `<style>
     html, body { margin: 0; padding: 0; width: 100%; height: 100%; overflow: hidden; }
