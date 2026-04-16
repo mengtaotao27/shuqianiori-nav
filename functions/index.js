@@ -87,7 +87,8 @@ export async function onRequest(context) {
 
   const settingsKeys = getSettingsKeys();
   const settingsPlaceholders = settingsKeys.map(() => '?').join(',');
-  const sitesQuery = `SELECT id, name, url, logo, desc, catelog_id, catelog_name, sort_order
+  // sort_order 仅用于 ORDER BY，不参与 SELECT（SQLite 允许）；前端不使用该字段
+  const sitesQuery = `SELECT id, name, url, logo, desc, catelog_id, catelog_name
                       FROM sites WHERE (is_private = 0 OR ? = 1) ORDER BY sort_order ASC, create_time DESC`;
 
   // Settings 缓存：优先从 KV 读取，减少数据库查询
@@ -412,10 +413,9 @@ export async function onRequest(context) {
   }
   if (customCardCss) headInjections += `<style>${customCardCss}</style>`;
 
-  // 全局站点数据（精简字段，减小 HTML 体积）
-  const searchData = allSites.map(s => ({ id: s.id, name: s.name, url: s.url, logo: s.logo, desc: s.desc, catelog_id: s.catelog_id, catelog_name: s.catelog_name }));
-  const safeJson = JSON.stringify(searchData).replace(/</g, '\\u003c');
-  headInjections += `<script>window.IORI_SITES = ${safeJson};</script>`;
+  // 全局站点数据：allSites 已只含前端所需字段（SQL 精简），直接序列化无需再拷贝
+  // 注入点挪到 </body> 前（见下方 replace），避免阻塞 <head> 解析
+  const safeSitesJson = JSON.stringify(allSites).replace(/</g, '\\u003c');
 
   // 布局配置
   headInjections += `<script>
@@ -435,6 +435,19 @@ export async function onRequest(context) {
     `<body class="bg-secondary-50 dark:bg-gray-900 font-sans text-gray-800 dark:text-gray-100 relative ${isCustomWallpaper ? 'custom-wallpaper' : ''}">${bgLayerHtml}<div id="app-scroll">`
   );
   html = html.replace('</body>', '</div></body>');
+
+  // 将 IORI_SITES 数据注入到 main.js 之前，使其在 body 底部而非 <head>，加快 FCP
+  // - 字面量匹配：避免未来模板给 <script> 加 defer/type 等属性时正则静默失配
+  // - 函数形式 replacement：规避用户数据中可能含 $&、$1 等被当作 back-reference
+  const mainJsMarker = '<script src="/js/main.js';
+  if (!html.includes(mainJsMarker)) {
+    console.error('IORI_SITES injection skipped: main.js marker not found in template');
+  } else {
+    html = html.replace(
+      mainJsMarker,
+      () => `<script>window.IORI_SITES = ${safeSitesJson};</script>\n  ${mainJsMarker}`
+    );
+  }
 
   // 替换所有模板占位符（单次正则匹配 + 映射表）
   const replacements = {
